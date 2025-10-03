@@ -91,9 +91,9 @@ if mic_button:
 
 # Process POST request from JS mic (Streamlit captures with _stcore/forward_request)
 import json
-if st.experimental_get_query_params():  # crude way to capture POST
+if st.query_params():  # crude way to capture POST
     try:
-        data = st.experimental_get_query_params()
+        data = st.query_params()
         if "user_text" in data:
             ask_bot(data["user_text"][0])
     except:
