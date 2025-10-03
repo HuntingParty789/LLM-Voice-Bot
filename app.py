@@ -1,29 +1,58 @@
 import streamlit as st
 from groq import Groq
 import os
-
-# Initialize Groq client (API key can come from Streamlit secrets or env var)
-client = Groq(api_key=os.getenv("GROQ_API_KEY") or "your_api_key_here")
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
+import queue
+import av
+import numpy as np
+import tempfile
+import soundfile as sf
 
 st.set_page_config(page_title="Groq Voice Bot", page_icon="🎤")
-st.title("🎤 Groq Voice Bot")
-st.write("Ask me anything! Type your question, and I’ll reply with both text and voice.")
+st.title("🎤 Groq Voice Bot with Microphone")
+st.write("Talk to the bot using your microphone and get spoken answers!")
 
-# Text input
-user_text = st.text_input("Type your question here:")
+# Initialize Groq
+client = Groq(api_key=os.getenv("GROQ_API_KEY") or "your_api_key_here")
 
-# Ask button
+# Audio Queue
+audio_queue = queue.Queue()
+
+# Audio processor class
+class AudioProcessor(AudioProcessorBase):
+    def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
+        audio = frame.to_ndarray()
+        audio_queue.put(audio)
+        return frame
+
+# Start microphone
+webrtc_streamer(key="mic", mode=WebRtcMode.SENDONLY, audio_processor_factory=AudioProcessor)
+
 if st.button("Ask"):
-    if user_text.strip():
+    if not audio_queue.empty():
+        # Save recorded audio to temp file
+        audio_data = []
+        while not audio_queue.empty():
+            audio_data.append(audio_queue.get())
+        audio_np = np.concatenate(audio_data, axis=1).T
+        with tempfile.NamedTemporaryFile(suffix=".wav") as f:
+            sf.write(f.name, audio_np, 48000)
+            f.flush()
+            st.audio(f.name, format="audio/wav")
+            # TODO: Send audio file to Groq STT (Whisper) to get text
+            # For now, just placeholder
+            user_text = "This is placeholder text from audio."
+
+        # Send to Groq LLM
         with st.spinner("Thinking..."):
             completion = client.chat.completions.create(
-                model="openai/gpt-oss-20B",  # or openai/gpt-oss-120B
+                model="openai/gpt-oss-20B",
                 messages=[{"role": "user", "content": user_text}]
             )
             reply = completion.choices[0].message.content
             st.success(reply)
 
-            # Pass reply to frontend for speech
+            # Speak reply
             st.components.v1.html(
                 f"""
                 <script>
@@ -34,7 +63,6 @@ if st.button("Ask"):
                 height=0,
             )
 
-# Stop button
 if st.button("⏹️ Stop"):
     st.components.v1.html(
         """
