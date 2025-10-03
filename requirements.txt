@@ -1,6 +1,4 @@
 streamlit
 groq
 openai
-sounddevice
-numpy
-PortAudio
+streamlit-audiorecorder
