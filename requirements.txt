@@ -1,6 +1,5 @@
 streamlit
 groq
-streamlit-webrtc
+openai
+sounddevice
 numpy
-soundfile
-av
