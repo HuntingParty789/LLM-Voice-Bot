@@ -17,11 +17,49 @@ from gtts import gTTS
 # Paste your full resume text here
 resume_text = """
 VIDYANSHU KUMAR SINHA
-Summary: Enthusiastic Computer Science graduate with backend dev skills Python, Flask, FastAPI.
-Experienced with APIs, MySQL, GenAI tools LangChain, open-source LLMs.
-Projects: Music Genre Classification, GenAI Chatbot, Gmail Summarizer.
-Intern: Insergo Technologies (Flask API/Ansible automation).
-Skills: Python, C, SQL, Docker, Git, Flask, FastAPI, ML/DL, Azure, AWS, Groq.
+
+Summary: Enthusiastic Computer Science graduate with solid backend development skills in Python, Flask, and FastAPI.
+Experienced in building APIs, working with MySQL, GenAI tools like LangChain and open-source LLMs via Ollama.
+Education
+B.TECH, CSE (Specialization in AI&ML) 2021 - 2025
+CV RAMAN GLOBAL UNIVERSITY.
+Higher Secondary 2019 - 2020
+D.A.V PUBLIC SCHOOL
+Senior Secondary 2017 - 2018
+D.A.V PUBLIC SCHOOL
+Projects
+1. Music Genre Classification Using Deep Learning (repository)
+Developed a scalable backend for Music Genre Classification using deep learning with TensorFlow and Keras, and
+exposed the model through a high-performance FastAPI service. Implemented CI/CD pipelines with GitHub Actions,
+Docker, and Azure App Service staging slots for zero-downtime deployments.
+2. GenAI-Powered Chatbot for Document Search & Text-to-SQL
+Built a chatbot using Azure OpenAI, LangChain, and RAG for document retrieval and text-to-SQL conversion. Used Azure
+Cognitive Search and OpenAI embeddings for semantic understanding.
+3. Gmail Summarizer using n8n
+Built a Gmail Summarizer workflow in n8n that automatically fetches incoming emails, applies an LLM-based
+summarization step, and delivers concise summaries to the user, reducing email overload and improving productivity.
+Internship
+Company - Insergo Technologies
+Project - Ansible-Powered Configuration Automation API
+Responsibility - Developed and deployed a containerized Flask API server for automating last mile configuration
+via ansible: Certificate
+Certifications
+Cisco
+1. Cisco Certified Network Associate: Learned and understood about layer 3 networking, routing and switches:
+Certificate
+Coursera
+1. Using Python to Interact with the Operating System: Certificate
+Goldsman Sachs
+1. Software Engineering Job Simulation: Gained hands-on exposure on how engineers at Goldman Sachs approach
+security and system design: Certificate
+Skills
+Languages - Python, C, C++, SQL
+Developer Tools – Git, Git Hub
+Framework – Flask, Fast API, REST API
+Machine Learning – Deep Learning, NLP, Machine learning Algorithms.
+Cloud – AWS (Amazon Web Service), Microsoft Azure
+LLM & GenAI Tools – LangChain, OpenAI API (GPT-3.5, GPT-4), HuggingFace, RAG Architecture, Prompt Engineering, FAISS
+AI Tools – n8n workflow
 """
 
 # Setup embeddings & vectorstore for resume Q&A
