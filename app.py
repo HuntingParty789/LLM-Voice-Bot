@@ -17,7 +17,7 @@ if st.button("Ask"):
     if user_text.strip():
         with st.spinner("Thinking..."):
             completion = client.chat.completions.create(
-                model="llama3-8b-8192",
+                model="openai/gpt-oss-120B",
                 messages=[{"role": "user", "content": user_text}]
             )
             reply = completion.choices[0].message.content
