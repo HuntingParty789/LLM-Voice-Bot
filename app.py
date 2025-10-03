@@ -1,169 +1,90 @@
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, WebRtcMode
-import av
-import numpy as np
+from groq import Groq
+from audiorecorder import audiorecorder
 import tempfile
-import threading
-import queue
-import time
-import speech_recognition as sr
+import os
 
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import FAISS
-from langchain_groq import ChatGroq
-from langchain.chains import RetrievalQA
-from gtts import gTTS
+# Initialize Groq client (make sure to set GROQ_API_KEY in env)
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-# Paste your full resume text here
-resume_text = """
-VIDYANSHU KUMAR SINHA
+st.set_page_config(page_title="Groq Chatbot", page_icon="🤖", layout="wide")
+st.title("🤖 Chat with Groq AI")
+st.write("Talk using **text** or **voice** 🎙️\n\n"
+         "👉 Tip: Use the word **'vidyanshu'** in your question if you want the bot to answer as Vidyanshu.")
 
-Summary: Enthusiastic Computer Science graduate with solid backend development skills in Python, Flask, and FastAPI.
-Experienced in building APIs, working with MySQL, GenAI tools like LangChain and open-source LLMs via Ollama.
-Education
-B.TECH, CSE (Specialization in AI&ML) 2021 - 2025
-CV RAMAN GLOBAL UNIVERSITY.
-Higher Secondary 2019 - 2020
-D.A.V PUBLIC SCHOOL
-Senior Secondary 2017 - 2018
-D.A.V PUBLIC SCHOOL
-Projects
-1. Music Genre Classification Using Deep Learning (repository)
-Developed a scalable backend for Music Genre Classification using deep learning with TensorFlow and Keras, and
-exposed the model through a high-performance FastAPI service. Implemented CI/CD pipelines with GitHub Actions,
-Docker, and Azure App Service staging slots for zero-downtime deployments.
-2. GenAI-Powered Chatbot for Document Search & Text-to-SQL
-Built a chatbot using Azure OpenAI, LangChain, and RAG for document retrieval and text-to-SQL conversion. Used Azure
-Cognitive Search and OpenAI embeddings for semantic understanding.
-3. Gmail Summarizer using n8n
-Built a Gmail Summarizer workflow in n8n that automatically fetches incoming emails, applies an LLM-based
-summarization step, and delivers concise summaries to the user, reducing email overload and improving productivity.
-Internship
-Company - Insergo Technologies
-Project - Ansible-Powered Configuration Automation API
-Responsibility - Developed and deployed a containerized Flask API server for automating last mile configuration
-via ansible: Certificate
-Certifications
-Cisco
-1. Cisco Certified Network Associate: Learned and understood about layer 3 networking, routing and switches:
-Certificate
-Coursera
-1. Using Python to Interact with the Operating System: Certificate
-Goldsman Sachs
-1. Software Engineering Job Simulation: Gained hands-on exposure on how engineers at Goldman Sachs approach
-security and system design: Certificate
-Skills
-Languages - Python, C, C++, SQL
-Developer Tools – Git, Git Hub
-Framework – Flask, Fast API, REST API
-Machine Learning – Deep Learning, NLP, Machine learning Algorithms.
-Cloud – AWS (Amazon Web Service), Microsoft Azure
-LLM & GenAI Tools – LangChain, OpenAI API (GPT-3.5, GPT-4), HuggingFace, RAG Architecture, Prompt Engineering, FAISS
-AI Tools – n8n workflow
-"""
+if "messages" not in st.session_state:
+    st.session_state["messages"] = []
 
-# Setup embeddings & vectorstore for resume Q&A
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-vectorstore = FAISS.from_texts([resume_text], embeddings)
+# --- Function to detect trigger ---
+def process_prompt(user_input: str):
+    """Modify behavior if 'vidyanshu' is mentioned."""
+    if "vidyanshu" in user_input.lower():
+        return f"Answer this question as if you are Vidyanshu Kumar Sinha (a final-year B.Tech student in CSE AI & ML at CV Raman Global University). User asked: {user_input}"
+    return user_input
 
-# Load Groq API key from Streamlit secrets
-groq_api_key = st.secrets["groq"]["api_key"]
+# --- Display chat history ---
+for msg in st.session_state["messages"]:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-groq_llm = ChatGroq(
-    groq_api_key=groq_api_key,
-    model="mixtral-8x7b-32768"
-)
+# --- Text input ---
+if prompt := st.chat_input("Type your message..."):
+    modified_prompt = process_prompt(prompt)
+    st.session_state["messages"].append({"role": "user", "content": modified_prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-qa_chain = RetrievalQA.from_chain_type(
-    llm=groq_llm,
-    retriever=vectorstore.as_retriever()
-)
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        message_placeholder.markdown("Thinking...")
 
-def is_personal_question(q: str) -> bool:
-    personal_keywords = [
-        "your", "you", "background", "skills", "project", "resume",
-        "life story", "superpower", "strengths", "grow"
-    ]
-    q = q.lower()
-    return any(kw in q for kw in personal_keywords)
+        response = client.chat.completions.create(
+            model="llama3-70b-8192",
+            messages=st.session_state["messages"]
+        )
+        reply = response.choices[0].message.content
+        message_placeholder.markdown(reply)
 
-# For streaming and processing audio frames:
-audio_q = queue.Queue()
+    st.session_state["messages"].append({"role": "assistant", "content": reply})
 
-def audio_callback(frame: av.AudioFrame):
-    audio_q.put(frame)
-    return frame
+# --- Voice input ---
+st.write("🎤 Record your voice:")
+audio = audiorecorder("🎙️ Start Recording", "🛑 Stop Recording")
 
-def save_audio_and_transcribe():
-    frames = []
-    while True:
-        try:
-            frame = audio_q.get(timeout=5)
-            frames.append(frame)
-        except queue.Empty:
-            break
+if len(audio) > 0:
+    # Save audio to temp file
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
+        audio.export(f.name, format="wav")
+        wav_path = f.name
 
-    if not frames:
-        return ""
+    with open(wav_path, "rb") as f:
+        transcript = client.audio.transcriptions.create(
+            model="whisper-large-v3",
+            file=f
+        )
+    os.remove(wav_path)
 
-    # Write frames to temporary WAV file
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmpfile:
-        output_file = tmpfile.name
+    text_input = transcript.text
+    modified_input = process_prompt(text_input)
 
-    # Convert audio frames to numpy array and save as WAV
-    sample_rate = frames[0].sample_rate
-    audio_array = np.concatenate([f.to_ndarray() for f in frames], axis=1)
+    st.session_state["messages"].append({"role": "user", "content": modified_input})
+    with st.chat_message("user"):
+        st.markdown(text_input)
 
-    import soundfile as sf  # needs to be in requirements.txt
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        message_placeholder.markdown("Processing...")
 
-    sf.write(output_file, audio_array.T, sample_rate)  # transpose for shape
+        response = client.chat.completions.create(
+            model="llama3-70b-8192",
+            messages=st.session_state["messages"]
+        )
+        reply = response.choices[0].message.content
+        message_placeholder.markdown(reply)
 
-    # Use SpeechRecognition to transcribe WAV
-    recognizer = sr.Recognizer()
-    with sr.AudioFile(output_file) as source:
-        audio = recognizer.record(source)
-        try:
-            question = recognizer.recognize_google(audio)
-        except Exception as e:
-            question = ""
-    return question
+    st.session_state["messages"].append({"role": "assistant", "content": reply})
 
-st.title("Groq AI Voicebot with Browser Microphone")
-
-webrtc_ctx = webrtc_streamer(
-    key="microphone",
-    mode=WebRtcMode.SENDONLY,
-    audio_frame_callback=audio_callback,
-    media_stream_constraints={"audio": True, "video": False},
-    async_processing=True,
-)
-
-question = ""
-
-if st.button("Stop & Transcribe") and webrtc_ctx.state.playing:
-    webrtc_ctx.stop()
-    # Process audio frames and transcribe
-    question = save_audio_and_transcribe()
-    if question:
-        st.write(f"Transcribed Question: {question}")
-    else:
-        st.warning("Could not transcribe audio. Please try again.")
-
-typed_question = st.text_input("Or type your question here")
-
-if typed_question:
-    question = typed_question
-
-if question and st.button("Ask"):
-    with st.spinner("Thinking..."):
-        if is_personal_question(question):
-            answer = qa_chain.run(question)
-        else:
-            answer = groq_llm(question)
-
-        st.success(answer)
-
-        tts = gTTS(answer)
-        with tempfile.NamedTemporaryFile(delete=True, suffix=".mp3") as fp:
-            tts.save(fp.name)
-            st.audio(fp.name)
+# --- Reset Conversation ---
+if st.button("🛑 Reset Conversation"):
+    st.session_state["messages"] = []
+    st.success("Conversation reset!")
