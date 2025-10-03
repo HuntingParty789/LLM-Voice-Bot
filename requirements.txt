@@ -1,9 +1,8 @@
 streamlit
-streamlit_audio_recorder
+streamlit-webrtc
 langchain
 sentence-transformers
 faiss-cpu
 groq
 gtts
 SpeechRecognition
-
