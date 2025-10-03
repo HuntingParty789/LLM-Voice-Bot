@@ -1,24 +1,21 @@
 import streamlit as st
+import speech_recognition as sr
 from groq import Groq
-from audiorecorder import audiorecorder
 from gtts import gTTS
-import tempfile
-import os
-import base64
+import os, base64, tempfile
 
-# Initialize Groq client (make sure to set GROQ_API_KEY in env)
+# Initialize Groq client
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-st.set_page_config(page_title="Groq Chatbot", page_icon="🤖", layout="wide")
-st.title("🤖 Chat with Groq AI (Voice + Text)")
-st.write("Talk using **text** or **voice** 🎙️\n\n"
-         "👉 Tip: Use the word **'vidyanshu'** in your question if you want the bot to answer as Vidyanshu.")
+st.set_page_config(page_title="Groq Voicebot", page_icon="🎤", layout="wide")
+st.title("🎤 Groq Hands-Free Voicebot")
+st.write("👉 Just **speak**. When you pause for ~2 seconds, the bot will reply automatically.\n"
+         "Use the word **'vidyanshu'** if you want the bot to answer as Vidyanshu.")
 
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
 
-# --- Function to detect trigger ---
 def process_prompt(user_input: str):
     """Modify behavior if 'vidyanshu' is mentioned."""
     if "vidyanshu" in user_input.lower():
@@ -26,7 +23,6 @@ def process_prompt(user_input: str):
     return user_input
 
 
-# --- Text-to-Speech ---
 def speak_text(text, lang="en"):
     """Convert text to speech and return HTML audio player."""
     tts = gTTS(text=text, lang=lang)
@@ -45,78 +41,49 @@ def speak_text(text, lang="en"):
     return audio_html
 
 
-# --- Display chat history ---
+# --- Chat history ---
 for msg in st.session_state["messages"]:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
 
-# --- Text input ---
-if prompt := st.chat_input("Type your message..."):
-    modified_prompt = process_prompt(prompt)
-    st.session_state["messages"].append({"role": "user", "content": modified_prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+# --- Start listening button ---
+if st.button("🎙️ Start Talking"):
+    r = sr.Recognizer()
+    with sr.Microphone() as source:
+        st.info("Listening... Speak now (auto-stops on 2s silence)")
+        r.pause_threshold = 2   # <-- silence detection
+        audio_data = r.listen(source)
 
-    with st.chat_message("assistant"):
-        message_placeholder = st.empty()
-        message_placeholder.markdown("Thinking...")
+        try:
+            text_input = r.recognize_google(audio_data)
+            modified_input = process_prompt(text_input)
 
-        response = client.chat.completions.create(
-            model="openai/gpt-oss-20B",   # ✅ Updated working model
-            messages=st.session_state["messages"]
-        )
-        reply = response.choices[0].message.content
-        message_placeholder.markdown(reply)
+            st.session_state["messages"].append({"role": "user", "content": modified_input})
+            with st.chat_message("user"):
+                st.markdown(text_input)
 
-        # 🔊 Speak response
-        st.markdown(speak_text(reply), unsafe_allow_html=True)
+            with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+                message_placeholder.markdown("Processing...")
 
-    st.session_state["messages"].append({"role": "assistant", "content": reply})
+                response = client.chat.completions.create(
+                    model="openai/gpt-oss-20B",
+                    messages=st.session_state["messages"]
+                )
+                reply = response.choices[0].message.content
+                message_placeholder.markdown(reply)
 
+                # 🔊 Speak reply
+                st.markdown(speak_text(reply), unsafe_allow_html=True)
 
-# --- Voice input ---
-st.write("🎤 Record your voice:")
-audio = audiorecorder("🎙️ Start Recording", "🛑 Stop Recording")
+            st.session_state["messages"].append({"role": "assistant", "content": reply})
 
-if len(audio) > 0:
-    # Save audio to temp file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
-        audio.export(f.name, format="wav")
-        wav_path = f.name
-
-    with open(wav_path, "rb") as f:
-        transcript = client.audio.transcriptions.create(
-            model="whisper-large-v3",
-            file=f
-        )
-    os.remove(wav_path)
-
-    text_input = transcript.text
-    modified_input = process_prompt(text_input)
-
-    st.session_state["messages"].append({"role": "user", "content": modified_input})
-    with st.chat_message("user"):
-        st.markdown(text_input)
-
-    with st.chat_message("assistant"):
-        message_placeholder = st.empty()
-        message_placeholder.markdown("Processing...")
-
-        response = client.chat.completions.create(
-            model="openai/gpt-oss-20B",
-            messages=st.session_state["messages"]
-        )
-        reply = response.choices[0].message.content
-        message_placeholder.markdown(reply)
-
-        # 🔊 Speak response
-        st.markdown(speak_text(reply), unsafe_allow_html=True)
-
-    st.session_state["messages"].append({"role": "assistant", "content": reply})
+        except Exception as e:
+            st.error(f"Error: {e}")
 
 
-# --- Reset Conversation ---
+# --- Reset ---
 if st.button("🛑 Reset Conversation"):
     st.session_state["messages"] = []
     st.success("Conversation reset!")
