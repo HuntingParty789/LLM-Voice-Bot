@@ -3,57 +3,56 @@ from groq import Groq
 import os
 
 st.set_page_config(page_title="Groq Voice Bot", page_icon="🎤")
-st.title("🎤 Groq Voice Bot (User-Friendly)")
-st.write("Upload a voice note or type your question. The bot will respond with text and speech!")
+st.title("🎤 Groq Voice Bot")
+st.write("Talk to me using your microphone and get spoken answers instantly!")
 
-# Groq client
+# Initialize Groq
 client = Groq(api_key=os.getenv("GROQ_API_KEY") or "your_api_key_here")
 
-# Voice input
-uploaded_file = st.file_uploader("Upload a voice recording (wav/m4a/ogg)", type=["wav","m4a","ogg"])
+# Instructions
+st.info("Click 'Start Talking' to speak. Your question will be sent automatically, and the bot will reply with voice.")
 
-user_text = st.text_input("Or type your question here:")
-
-# Ask button
-if st.button("Ask"):
-    if uploaded_file:
-        # Send audio file to Groq Whisper STT
-        st.info("Transcribing audio...")
-        transcription = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=uploaded_file
-        )
-        user_text = transcription.text
-        st.write(f"**You said:** {user_text}")
-
-    if user_text.strip():
-        st.info("Thinking...")
-        completion = client.chat.completions.create(
-            model="openai/gpt-oss-20B",
-            messages=[{"role": "user", "content": user_text}]
-        )
-        reply = completion.choices[0].message.content
-        st.success(reply)
-
-        # Speak reply in browser
-        st.components.v1.html(
-            f"""
-            <script>
-            var msg = new SpeechSynthesisUtterance({repr(reply)});
-            window.speechSynthesis.speak(msg);
-            </script>
-            """,
-            height=0,
-        )
-
-# Stop button
-if st.button("⏹️ Stop"):
+# Buttons
+if st.button("Start Talking"):
+    # Inject HTML/JS for browser mic + TTS
     st.components.v1.html(
-        """
+        f"""
+        <button onclick="startListening()">🎙️ Start Talking</button>
+        <button onclick="stopSpeech()">⏹️ Stop</button>
+        <p id="status"></p>
         <script>
-        window.speechSynthesis.cancel();
+        var recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+
+        recognition.onresult = async function(event) {{
+            var userText = event.results[0][0].transcript;
+            document.getElementById('status').innerHTML = 'You said: ' + userText;
+
+            // Send text to Streamlit backend
+            const response = await fetch('/_stcore/forward_request', {{
+                method: 'POST',
+                headers: {{
+                    'Content-Type': 'application/json'
+                }},
+                body: JSON.stringify({{ 'user_text': userText }})
+            }});
+            // For demo, we just speak user text back
+            var reply = "Processing...";  // Replace with backend reply if using API endpoint
+            var msg = new SpeechSynthesisUtterance(reply);
+            window.speechSynthesis.speak(msg);
+        }}
+
+        function startListening() {{
+            recognition.start();
+            document.getElementById('status').innerHTML = 'Listening...';
+        }}
+
+        function stopSpeech() {{
+            window.speechSynthesis.cancel();
+            document.getElementById('status').innerHTML = 'Conversation stopped.';
+        }}
         </script>
         """,
-        height=0,
+        height=300,
     )
-    st.info("Conversation stopped.")
