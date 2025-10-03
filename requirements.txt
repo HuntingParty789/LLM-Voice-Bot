@@ -2,7 +2,7 @@ streamlit
 langchain
 sentence-transformers
 faiss-cpu
-openai
-SpeechRecognition
+groq
 gtts
-pyaudio  # May be optional, but needed for some audio features locally
+SpeechRecognition
+pyaudio
