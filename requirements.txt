@@ -3,3 +3,4 @@ groq
 openai
 sounddevice
 numpy
+PortAudio
