@@ -4,5 +4,6 @@ langchain
 sentence-transformers
 faiss-cpu
 groq
-SpeechRecognition
 gtts
+SpeechRecognition
+
