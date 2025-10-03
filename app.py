@@ -39,7 +39,7 @@ if prompt := st.chat_input("Type your message..."):
         message_placeholder.markdown("Thinking...")
 
         response = client.chat.completions.create(
-            model="llama3-70b-8192",
+            model="openai/gpt-oss-120B",
             messages=st.session_state["messages"]
         )
         reply = response.choices[0].message.content
