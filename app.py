@@ -10,7 +10,7 @@ import speech_recognition as sr
 
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
-from langchain.llms.groq import ChatGroq
+from langchain_groq import ChatGroq
 from langchain.chains import RetrievalQA
 from gtts import gTTS
 
