@@ -1,13 +1,4 @@
 streamlit
-streamlit-webrtc
-langchain
-langchain-community
-langchain-groq
-sentence-transformers
-faiss-cpu
 groq
-gtts
-speechrecognition
-soundfile
-numpy
-av
+openai
+streamlit-audiorecorder
