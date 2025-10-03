@@ -1,5 +1,5 @@
 streamlit
-streamlit-webrtc
+streamlit_audio_recorder
 langchain
 sentence-transformers
 faiss-cpu
