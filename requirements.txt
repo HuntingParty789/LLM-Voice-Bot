@@ -1,5 +1,8 @@
 streamlit
-groq
+langchain
+sentence-transformers
+faiss-cpu
 openai
-streamlit-audiorecorder
-pyaudioop
+SpeechRecognition
+gtts
+pyaudio  # May be optional, but needed for some audio features locally
