@@ -3,6 +3,6 @@ langchain
 sentence-transformers
 faiss-cpu
 groq
-gtts
 SpeechRecognition
+gtts
 pyaudio
