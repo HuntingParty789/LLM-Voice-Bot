@@ -5,4 +5,7 @@ sentence-transformers
 faiss-cpu
 groq
 gtts
-SpeechRecognition
+speechrecognition
+soundfile
+numpy
+av
