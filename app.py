@@ -1,100 +1,102 @@
 import streamlit as st
 from groq import Groq
+import sounddevice as sd
+import numpy as np
+import tempfile
+import wave
 import os
 
-st.set_page_config(page_title="Groq Voice Bot", page_icon="🎤")
-st.title("🎤 Groq Voice Bot")
-st.write("Talk or type to the bot, and it will respond with voice!")
+# Initialize Groq client (API key must be set in environment variable)
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-# Initialize Groq
-client = Groq(api_key=os.getenv("GROQ_API_KEY") or "your_api_key_here")
+# Set page config
+st.set_page_config(page_title="Groq Chatbot", page_icon="🤖", layout="wide")
 
-# --- TEXT INPUT ---
-user_text_input = st.text_input("Or type your question here:")
+st.title("🤖 Chat with Groq AI")
+st.write("Talk using **text** or **voice** 🎙️")
 
-if st.button("Ask via Text"):
-    if user_text_input.strip():
-        with st.spinner("Thinking..."):
-            completion = client.chat.completions.create(
-                model="mixtral-8x7b-32768",   # ✅ stable Groq model
-                messages=[{"role": "user", "content": user_text_input}]
-            )
-            reply = completion.choices[0].message.content
-            st.success(reply)
+# Store chat history
+if "messages" not in st.session_state:
+    st.session_state["messages"] = []
 
-            # Speak reply in browser
-            st.components.v1.html(
-                f"""
-                <script>
-                var msg = new SpeechSynthesisUtterance({repr(reply)});
-                msg.lang = "en-US";
-                window.speechSynthesis.speak(msg);
-                </script>
-                """,
-                height=0,
-            )
+# --- Display chat history ---
+for msg in st.session_state["messages"]:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-# --- VOICE INPUT (Browser Mic) ---
-st.markdown("### 🎙️ Voice Input")
-st.components.v1.html(
-    f"""
-    <style>
-      #status {{
-        color: white;
-        font-weight: bold;
-        margin-top: 10px;
-      }}
-      button {{
-        background: #6c5ce7;
-        color: white;
-        padding: 10px 20px;
-        border: none;
-        border-radius: 8px;
-        margin: 5px;
-        cursor: pointer;
-      }}
-    </style>
+# --- Text input ---
+if prompt := st.chat_input("Type your message..."):
+    st.session_state["messages"].append({"role": "user", "content": prompt})
 
-    <button onclick="startListening()">🎙️ Start Talking</button>
-    <button onclick="stopSpeech()">⏹️ Stop</button>
-    <p id="status">Click Start Talking...</p>
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-    <script>
-    var recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-    recognition.lang = 'en-US';
-    recognition.interimResults = false;
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        message_placeholder.markdown("Thinking...")
 
-    recognition.onresult = async function(event) {{
-        var userText = event.results[0][0].transcript;
-        document.getElementById('status').innerHTML = "You said: " + userText;
+        response = client.chat.completions.create(
+            model="llama3-70b-8192",
+            messages=st.session_state["messages"]
+        )
 
-        // Call Streamlit backend with fetch API
-        const response = await fetch('/ask', {{
-            method: 'POST',
-            headers: {{ 'Content-Type': 'application/json' }},
-            body: JSON.stringify({{ 'text': userText }})
-        }});
-        const data = await response.json();
-        var reply = data.reply;
+        reply = response.choices[0].message.content
+        message_placeholder.markdown(reply)
 
-        document.getElementById('status').innerHTML += "<br>Bot: " + reply;
+    st.session_state["messages"].append({"role": "assistant", "content": reply})
 
-        // Speak reply
-        var msg = new SpeechSynthesisUtterance(reply);
-        msg.lang = "en-US";
-        window.speechSynthesis.speak(msg);
-    }}
 
-    function startListening() {{
-        recognition.start();
-        document.getElementById('status').innerHTML = "🎤 Listening...";
-    }}
+# --- Voice input ---
+st.write("🎤 Or record your voice:")
 
-    function stopSpeech() {{
-        window.speechSynthesis.cancel();
-        document.getElementById('status').innerHTML = "⏹️ Conversation stopped.";
-    }}
-    </script>
-    """,
-    height=300,
-)
+if st.button("Start Recording"):
+    duration = 5  # seconds
+    fs = 44100
+
+    st.write("Recording... Speak now!")
+    recording = sd.rec(int(duration * fs), samplerate=fs, channels=1, dtype='int16')
+    sd.wait()
+    st.write("Recording stopped.")
+
+    # Save to temp WAV
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
+        wav_path = tmpfile.name
+        with wave.open(wav_path, 'wb') as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(fs)
+            wf.writeframes(recording.tobytes())
+
+    # Send to Groq STT
+    with open(wav_path, "rb") as f:
+        transcript = client.audio.transcriptions.create(
+            model="whisper-large-v3",
+            file=f
+        )
+
+    os.remove(wav_path)
+    text_input = transcript.text
+
+    st.session_state["messages"].append({"role": "user", "content": text_input})
+
+    with st.chat_message("user"):
+        st.markdown(text_input)
+
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        message_placeholder.markdown("Processing...")
+
+        response = client.chat.completions.create(
+            model="llama3-70b-8192",
+            messages=st.session_state["messages"]
+        )
+
+        reply = response.choices[0].message.content
+        message_placeholder.markdown(reply)
+
+    st.session_state["messages"].append({"role": "assistant", "content": reply})
+
+# --- Stop Conversation ---
+if st.button("🛑 Stop Conversation"):
+    st.session_state["messages"] = []
+    st.success("Conversation reset!")
