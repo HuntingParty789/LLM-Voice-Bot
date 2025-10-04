@@ -35,7 +35,7 @@ def speak_text(text):
         st.audio(tmp.name, format="audio/mp3")
         return tmp.name
 
-st.title("🤖 Vidyanshu Voice Chat")
+st.title("🤖 100x AI Companion")
 
 # Display chat history
 for msg in st.session_state.messages:
