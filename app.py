@@ -29,21 +29,17 @@ def speak_text(text):
 
 st.title("🤖 Vidyanshu Voice Chat")
 
-for msg in st.session_state.messages:
+for idx, msg in enumerate(st.session_state.messages):
     if msg["role"] == "user":
         st.chat_message("user").write(msg["content"])
     else:
         st.chat_message("assistant").write(msg["content"])
         if "audio" in msg:
             audio_file = msg["audio"]
-            audio_html = f"""
-            <audio id="responseAudio" src="{audio_file}" type="audio/mp3" autoplay></audio>
-            <script>
-                const audio = document.getElementById('responseAudio');
-                audio.play();
-            </script>
-            """
-            st.markdown(audio_html, unsafe_allow_html=True)
+            # Place a button to play the audio response
+            if st.button(f"▶️ Play response #{idx}", key=f"play_audio_{idx}"):
+                audio_bytes = open(audio_file, "rb").read()
+                st.audio(audio_bytes, format="audio/mp3")
 
 col1, col2 = st.columns([8, 1])
 with col1:
