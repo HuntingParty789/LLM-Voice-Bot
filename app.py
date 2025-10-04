@@ -1,124 +1,86 @@
 import streamlit as st
-from groq import Groq
+import speech_recognition as sr
 from gtts import gTTS
-import tempfile
 import os
-import base64
-import av
-from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
+import tempfile
+from openai import OpenAI
 
-# --- Initialize Groq client ---
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+# Initialize OpenAI client
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-# --- Page setup ---
-st.set_page_config(page_title="Groq Voice Chatbot", page_icon="🤖", layout="wide")
-st.title("🤖 Chat with Groq AI (Voice + Text)")
-st.write("Type or Speak to chat with the bot 🎙️\n\n"
-         "👉 Use **'vidyanshu'** in your question for persona mode.")
+st.set_page_config(page_title="Vidyanshu Voice Chatbot", layout="centered")
 
+# Session state for chat history
 if "messages" not in st.session_state:
-    st.session_state["messages"] = []
+    st.session_state.messages = []
 
-# --- Trigger word processor ---
-def process_prompt(user_input: str):
-    if "vidyanshu" in user_input.lower():
-        return f"Answer as if you are Vidyanshu Kumar Sinha. User asked: {user_input}"
-    return user_input
+# --- Function: Listen from mic with silence detection ---
+def listen_from_mic(timeout=5, phrase_time_limit=15):
+    recognizer = sr.Recognizer()
+    mic = sr.Microphone()
+    with mic as source:
+        recognizer.adjust_for_ambient_noise(source, duration=1)
+        st.write("🎙️ Listening...")
+        try:
+            audio = recognizer.listen(source, timeout=timeout, phrase_time_limit=phrase_time_limit)
+            text = recognizer.recognize_google(audio)
+            return text
+        except sr.WaitTimeoutError:
+            return None
+        except sr.UnknownValueError:
+            return None
+        except sr.RequestError as e:
+            return f"API error: {e}"
 
-# --- Text-to-Speech ---
-def speak_text(text, lang="en"):
-    tts = gTTS(text=text, lang=lang)
-    filename = "reply.mp3"
-    tts.save(filename)
-    with open(filename, "rb") as f:
-        audio_bytes = f.read()
-    b64 = base64.b64encode(audio_bytes).decode()
-    return f"""
-        <audio autoplay controls>
-            <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
-        </audio>
-    """
+# --- Function: Get LLM response ---
+def get_llm_response(user_input):
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",  # ✅ lightweight & supported
+        messages=[
+            {"role": "system", "content": "You are Vidyanshu's AI assistant. Respond naturally and conversationally."},
+            {"role": "user", "content": user_input},
+        ],
+    )
+    return response.choices[0].message.content
 
-# --- Display history ---
-for msg in st.session_state["messages"]:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+# --- Function: Speak response ---
+def speak_text(text):
+    tts = gTTS(text=text, lang="en")
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
+        tts.save(tmp.name)
+        st.audio(tmp.name, format="audio/mp3")
+        return tmp.name
 
-# --- Text input ---
-if prompt := st.chat_input("Type your message..."):
-    modified_prompt = process_prompt(prompt)
-    st.session_state["messages"].append({"role": "user", "content": modified_prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+# --- Chat UI ---
+st.title("🤖 Vidyanshu AI Voice Chat")
 
-    with st.chat_message("assistant"):
-        resp = client.chat.completions.create(
-            model="gemma2-9b-it",
-            messages=st.session_state["messages"]
-        )
-        reply = resp.choices[0].message.content
-        st.markdown(reply)
-        st.markdown(speak_text(reply), unsafe_allow_html=True)
+# Display chat history
+for msg in st.session_state.messages:
+    if msg["role"] == "user":
+        st.chat_message("user").write(msg["content"])
+    else:
+        st.chat_message("assistant").write(msg["content"])
+        if "audio" in msg:
+            st.audio(msg["audio"], format="audio/mp3")
 
-    st.session_state["messages"].append({"role": "assistant", "content": reply})
+# --- Input box with mic button ---
+col1, col2 = st.columns([8, 1])
+with col1:
+    user_input = st.chat_input("Type your message here...")
+with col2:
+    if st.button("🎤"):
+        spoken_text = listen_from_mic()
+        if spoken_text:
+            user_input = spoken_text
+        else:
+            st.warning("Didn't catch that. Please try again.")
 
+# --- Process user message ---
+if user_input:
+    st.session_state.messages.append({"role": "user", "content": user_input})
 
-# --- Voice Recorder with WebRTC ---
-st.subheader("🎤 Talk to the bot")
+    bot_reply = get_llm_response(user_input)
+    audio_file = speak_text(bot_reply)
 
-class AudioProcessor(AudioProcessorBase):
-    def __init__(self):
-        self.frames = []
-
-    def recv_audio(self, frame: av.AudioFrame) -> av.AudioFrame:
-        self.frames.append(frame.to_ndarray().tobytes())
-        return frame
-
-webrtc_ctx = webrtc_streamer(
-    key="speech",
-    mode=WebRtcMode.SENDRECV,
-    audio_receiver_size=256,
-    media_stream_constraints={"audio": True, "video": False},
-    async_processing=True,
-)
-
-if webrtc_ctx.audio_receiver:
-    audio_frames = webrtc_ctx.audio_receiver.get_frames(timeout=1)
-    if audio_frames:
-        # Save captured audio to temp file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
-            for af in audio_frames:
-                f.write(af.to_ndarray().tobytes())
-            wav_path = f.name
-
-        # Transcribe with Groq Whisper
-        with open(wav_path, "rb") as f:
-            transcript = client.audio.transcriptions.create(
-                model="whisper-large-v3",
-                file=f
-            )
-        os.remove(wav_path)
-
-        user_text = transcript.text
-        modified_input = process_prompt(user_text)
-
-        st.session_state["messages"].append({"role": "user", "content": modified_input})
-        with st.chat_message("user"):
-            st.markdown(user_text)
-
-        with st.chat_message("assistant"):
-            resp = client.chat.completions.create(
-                model="gemma2-9b-it",
-                messages=st.session_state["messages"]
-            )
-            reply = resp.choices[0].message.content
-            st.markdown(reply)
-            st.markdown(speak_text(reply), unsafe_allow_html=True)
-
-        st.session_state["messages"].append({"role": "assistant", "content": reply})
-
-
-# --- Reset ---
-if st.button("🛑 Reset Conversation"):
-    st.session_state["messages"] = []
-    st.success("Conversation reset!")
+    st.session_state.messages.append({"role": "assistant", "content": bot_reply, "audio": audio_file})
+    st.experimental_rerun()
