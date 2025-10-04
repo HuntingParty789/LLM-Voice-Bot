@@ -59,7 +59,7 @@ with col2:
         # Transcribe audio with Whisper
         with open(tmp_path, "rb") as f:
             transcript = client.audio.transcriptions.create(
-                model="gpt-4o-transcribe",  # Whisper-based
+                model="whisper-large-v3-turbo",  # Whisper-based
                 file=f
             )
         user_input = transcript.text
