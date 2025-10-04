@@ -7,7 +7,7 @@ from streamlit_mic_recorder import mic_recorder
 # Initialize Groq client
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-st.set_page_config(page_title="100x_AI_Companion", layout="centered")
+st.set_page_config(page_title="AI_Companion", layout="centered")
 
 # Store chat messages in session state
 if "messages" not in st.session_state:
