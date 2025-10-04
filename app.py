@@ -55,9 +55,7 @@ with col2:
     audio = mic_recorder(
         start_prompt="🎙️",         # Custom mic icon
         stop_prompt="🛑",           # Stop button icon
-        just_once=True,
-        silence_threshold=-40,      # dB for silence detection (adjust as needed)
-        silence_duration=2          # seconds before auto-stop (2s)
+        just_once=True,          
     )
 
     if audio:
