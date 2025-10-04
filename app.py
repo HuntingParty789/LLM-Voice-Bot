@@ -36,7 +36,6 @@ for msg in st.session_state.messages:
         st.chat_message("assistant").write(msg["content"])
         if "audio" in msg:
             audio_file = msg["audio"]
-            # Inject audio with autoplay via HTML+JS
             audio_html = f"""
             <audio id="responseAudio" src="{audio_file}" type="audio/mp3" autoplay></audio>
             <script>
@@ -72,4 +71,3 @@ if user_input:
     bot_reply = get_llm_response(user_input)
     audio_file = speak_text(bot_reply)
     st.session_state.messages.append({"role": "assistant", "content": bot_reply, "audio": audio_file})
-    st.experimental_rerun()
