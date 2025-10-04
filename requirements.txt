@@ -3,3 +3,4 @@ groq
 openai
 streamlit-audiorecorder
 gTTS
+pydub
