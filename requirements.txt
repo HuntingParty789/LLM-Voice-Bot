@@ -1,6 +1,5 @@
 streamlit
-groq
+openai
+speechrecognition
 gtts
-pydub
-streamlit-webrtc
-av
+pyaudio
