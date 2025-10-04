@@ -1,6 +1,5 @@
 streamlit
 groq
-openai
-streamlit-audiorecorder
-gTTS
+gtts
 pydub
+streamlit-audiorec
