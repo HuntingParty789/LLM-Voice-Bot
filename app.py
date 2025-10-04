@@ -17,7 +17,7 @@ if "messages" not in st.session_state:
 # --- LLM reply ---
 def get_llm_response(user_input):
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="openai/gpt-oss-20b",
         messages=[
             {"role": "system", "content": "You are Vidyanshu's AI assistant. Reply naturally and conversationally."},
             {"role": "user", "content": user_input},
