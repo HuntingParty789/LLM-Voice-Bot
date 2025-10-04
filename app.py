@@ -1,49 +1,31 @@
 import streamlit as st
-import speech_recognition as sr
-from gtts import gTTS
-import os
-import tempfile
 from openai import OpenAI
+from gtts import gTTS
+import tempfile
 
-# Initialize OpenAI client
+from streamlit_mic_recorder import mic_recorder
+
+# OpenAI client
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-st.set_page_config(page_title="Vidyanshu Voice Chatbot", layout="centered")
+st.set_page_config(page_title="Vidyanshu Voice Chat", layout="centered")
 
-# Session state for chat history
+# Session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# --- Function: Listen from mic with silence detection ---
-def listen_from_mic(timeout=5, phrase_time_limit=15):
-    recognizer = sr.Recognizer()
-    mic = sr.Microphone()
-    with mic as source:
-        recognizer.adjust_for_ambient_noise(source, duration=1)
-        st.write("🎙️ Listening...")
-        try:
-            audio = recognizer.listen(source, timeout=timeout, phrase_time_limit=phrase_time_limit)
-            text = recognizer.recognize_google(audio)
-            return text
-        except sr.WaitTimeoutError:
-            return None
-        except sr.UnknownValueError:
-            return None
-        except sr.RequestError as e:
-            return f"API error: {e}"
-
-# --- Function: Get LLM response ---
+# --- LLM reply ---
 def get_llm_response(user_input):
     response = client.chat.completions.create(
-        model="gpt-4o-mini",  # ✅ lightweight & supported
+        model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "You are Vidyanshu's AI assistant. Respond naturally and conversationally."},
+            {"role": "system", "content": "You are Vidyanshu's AI assistant. Reply naturally and conversationally."},
             {"role": "user", "content": user_input},
         ],
     )
     return response.choices[0].message.content
 
-# --- Function: Speak response ---
+# --- Speak reply ---
 def speak_text(text):
     tts = gTTS(text=text, lang="en")
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
@@ -52,9 +34,8 @@ def speak_text(text):
         return tmp.name
 
 # --- Chat UI ---
-st.title("🤖 Vidyanshu AI Voice Chat")
+st.title("🤖 Vidyanshu Voice Chat")
 
-# Display chat history
 for msg in st.session_state.messages:
     if msg["role"] == "user":
         st.chat_message("user").write(msg["content"])
@@ -63,24 +44,30 @@ for msg in st.session_state.messages:
         if "audio" in msg:
             st.audio(msg["audio"], format="audio/mp3")
 
-# --- Input box with mic button ---
+# --- Input ---
 col1, col2 = st.columns([8, 1])
 with col1:
-    user_input = st.chat_input("Type your message here...")
+    user_input = st.chat_input("Type your message...")
 with col2:
-    if st.button("🎤"):
-        spoken_text = listen_from_mic()
-        if spoken_text:
-            user_input = spoken_text
-        else:
-            st.warning("Didn't catch that. Please try again.")
+    audio = mic_recorder(start_prompt="🎤", stop_prompt="🛑", just_once=True)
 
-# --- Process user message ---
+    if audio:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+            tmp.write(audio["bytes"])
+            tmp_path = tmp.name
+
+        # Transcribe audio with Whisper
+        with open(tmp_path, "rb") as f:
+            transcript = client.audio.transcriptions.create(
+                model="gpt-4o-transcribe",  # Whisper-based
+                file=f
+            )
+        user_input = transcript.text
+
+# --- Process ---
 if user_input:
     st.session_state.messages.append({"role": "user", "content": user_input})
-
     bot_reply = get_llm_response(user_input)
     audio_file = speak_text(bot_reply)
-
     st.session_state.messages.append({"role": "assistant", "content": bot_reply, "audio": audio_file})
     st.experimental_rerun()
