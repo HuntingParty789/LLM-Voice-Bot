@@ -2,3 +2,4 @@ streamlit
 openai
 gtts
 streamlit-mic-recorder
+groq
