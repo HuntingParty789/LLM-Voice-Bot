@@ -6,14 +6,17 @@ import tempfile
 import os
 import base64
 
-# Initialize Groq client (make sure to set GROQ_API_KEY in env)
+# Initialize Groq client (API key should be set as env variable)
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
+# --- Streamlit page config ---
 st.set_page_config(page_title="Groq Chatbot", page_icon="🤖", layout="wide")
 st.title("🤖 Chat with Groq AI (Voice + Text)")
 st.write("Talk using **text** or **voice** 🎙️\n\n"
          "👉 Tip: Use the word **'vidyanshu'** in your question if you want the bot to answer as Vidyanshu.")
 
+
+# --- Chat History ---
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
@@ -22,48 +25,26 @@ if "messages" not in st.session_state:
 def process_prompt(user_input: str):
     """Modify behavior if 'vidyanshu' is mentioned."""
     if "vidyanshu" in user_input.lower():
-         return f"Answer this question as if you are Vidyanshu Kumar Sinha Summary: Enthusiastic Computer Science graduate with solid backend development skills in Python, Flask, and FastAPI.
-         Experienced in building APIs, working with MySQL, GenAI tools like LangChain and open-source LLMs via Ollama.
-         Education
-         B.TECH, CSE (Specialization in AI&ML) 2021 - 2025
-         CV RAMAN GLOBAL UNIVERSITY.
-         Higher Secondary 2019 - 2020
-         D.A.V PUBLIC SCHOOL
-         Senior Secondary 2017 - 2018
-         D.A.V PUBLIC SCHOOL
-         Projects
-         1. Music Genre Classification Using Deep Learning (repository)
-         Developed a scalable backend for Music Genre Classification using deep learning with TensorFlow and Keras, and
-         exposed the model through a high-performance FastAPI service. Implemented CI/CD pipelines with GitHub Actions,
-         Docker, and Azure App Service staging slots for zero-downtime deployments.
-         2. GenAI-Powered Chatbot for Document Search & Text-to-SQL
-         Built a chatbot using Azure OpenAI, LangChain, and RAG for document retrieval and text-to-SQL conversion. Used Azure
-         Cognitive Search and OpenAI embeddings for semantic understanding.
-         3. Gmail Summarizer using n8n
-         Built a Gmail Summarizer workflow in n8n that automatically fetches incoming emails, applies an LLM-based
-         summarization step, and delivers concise summaries to the user, reducing email overload and improving productivity.
-         Internship
-         Company - Insergo Technologies
-         Project - Ansible-Powered Configuration Automation API
-         Responsibility - Developed and deployed a containerized Flask API server for automating last mile configuration
-         via ansible: Certificate
-         Certifications
-         Cisco
-         1. Cisco Certified Network Associate: Learned and understood about layer 3 networking, routing and switches:
-         Certificate
-         Coursera
-         1. Using Python to Interact with the Operating System: Certificate
-         Goldsman Sachs
-         1. Software Engineering Job Simulation: Gained hands-on exposure on how engineers at Goldman Sachs approach
-         security and system design: Certificate
-         Skills
-         Languages - Python, C, C++, SQL
-         Developer Tools – Git, Git Hub
-         Framework – Flask, Fast API, REST API
-         Machine Learning – Deep Learning, NLP, Machine learning Algorithms.
-         Cloud – AWS (Amazon Web Service), Microsoft Azure
-         LLM & GenAI Tools – LangChain, OpenAI API (GPT-3.5, GPT-4), HuggingFace, RAG Architecture, Prompt Engineering, FAISS
-         AI Tools – n8n workflow). User asked: {user_input}"
+        return f"""Answer this question as if you are **Vidyanshu Kumar Sinha**.  
+
+Summary: Enthusiastic Computer Science graduate with solid backend development skills in Python, Flask, and FastAPI.  
+Experienced in building APIs, working with MySQL, GenAI tools like LangChain and open-source LLMs via Ollama.  
+
+Education:  
+- B.TECH, CSE (AI&ML), 2021 - 2025 | CV Raman Global University  
+- DAV Public School (Higher Secondary & Senior Secondary)  
+
+Projects:  
+1. Music Genre Classification Using Deep Learning  
+2. GenAI-Powered Chatbot for Document Search & Text-to-SQL  
+3. Gmail Summarizer using n8n  
+
+Internship: Insergo Technologies (Ansible-Powered Config Automation API).  
+
+Skills: Python, C, C++, SQL, Flask, FastAPI, REST API, Git, Deep Learning, NLP, AWS, Azure, LangChain, HuggingFace, FAISS.  
+
+User asked: {user_input}
+"""
     return user_input
 
 
@@ -86,7 +67,7 @@ def speak_text(text, lang="en"):
     return audio_html
 
 
-# --- Display chat history ---
+# --- Display Chat History ---
 for msg in st.session_state["messages"]:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
@@ -104,7 +85,7 @@ if prompt := st.chat_input("Type your message..."):
         message_placeholder.markdown("Thinking...")
 
         response = client.chat.completions.create(
-            model="openai/gpt-oss-20B",   # ✅ Updated working model
+            model="gemma2-9b-it",   # ✅ Use supported Groq model
             messages=st.session_state["messages"]
         )
         reply = response.choices[0].message.content
@@ -126,6 +107,7 @@ if len(audio) > 0:
         audio.export(f.name, format="wav")
         wav_path = f.name
 
+    # Transcribe with Whisper
     with open(wav_path, "rb") as f:
         transcript = client.audio.transcriptions.create(
             model="whisper-large-v3",
@@ -145,7 +127,7 @@ if len(audio) > 0:
         message_placeholder.markdown("Processing...")
 
         response = client.chat.completions.create(
-            model="openai/gpt-oss-20B",
+            model="gemma2-9b-it",  # ✅ Groq supported model
             messages=st.session_state["messages"]
         )
         reply = response.choices[0].message.content
