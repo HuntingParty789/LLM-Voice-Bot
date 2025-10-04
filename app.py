@@ -6,7 +6,7 @@ from streamlit_mic_recorder import mic_recorder
 
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-st.set_page_config(page_title="Vidyanshu Voice Chat", layout="centered")
+st.set_page_config(page_title="100x AI Companion", layout="centered")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
