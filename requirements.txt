@@ -4,3 +4,4 @@ openai
 streamlit-audiorecorder
 gTTS
 pydub
+pyaudioop
