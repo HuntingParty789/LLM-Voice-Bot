@@ -70,4 +70,5 @@ if user_input:
     bot_reply = get_llm_response(user_input)
     audio_file = speak_text(bot_reply)
     st.session_state.messages.append({"role": "assistant", "content": bot_reply, "audio": audio_file})
-    st.experimental_rerun()
+    st.rerun()
+
