@@ -2,8 +2,8 @@ import streamlit as st
 from groq import Groq
 from gtts import gTTS
 import tempfile
-
 from streamlit_mic_recorder import mic_recorder
+import base64
 
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
@@ -26,8 +26,21 @@ def speak_text(text):
     tts = gTTS(text=text, lang="en")
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
         tts.save(tmp.name)
-        st.audio(tmp.name, format="audio/mp3")
         return tmp.name
+
+def get_audio_html(path):
+    audio_bytes = open(path, "rb").read()
+    b64 = base64.b64encode(audio_bytes).decode()
+    html = f"""
+    <audio id="audio" autoplay>
+        <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
+    </audio>
+    <script>
+        var audio = document.getElementById('audio');
+        audio.play().catch(e => console.log('Autoplay prevented', e));
+    </script>
+    """
+    return html
 
 st.title("🤖 Vidyanshu Voice Chat")
 
@@ -37,24 +50,22 @@ for msg in st.session_state.messages:
     else:
         st.chat_message("assistant").write(msg["content"])
         if "audio" in msg:
-            st.audio(msg["audio"], format="audio/mp3")
+            st.markdown(get_audio_html(msg["audio"]), unsafe_allow_html=True)
 
 col1, col2 = st.columns([8, 1])
 with col1:
     user_input = st.chat_input("Type your message...")
 with col2:
     audio = mic_recorder(
-        start_prompt="🎙️",  # Change this to preferred mic icon
-        # stop_prompt is omitted to remove stop button
-        just_once=True,
-        # If the package supports silence detection:
-        silence_threshold=-40,  # Adjust as needed
-        silence_duration=2      # Silence duration in seconds
+        start_prompt="🎙️",    # Mic icon
+        stop_prompt="🛑",     # Stop button
+        just_once=True        # Record only once per click
     )
     if audio:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
             tmp.write(audio["bytes"])
             tmp_path = tmp.name
+
         with open(tmp_path, "rb") as f:
             transcript = client.audio.transcriptions.create(
                 model="whisper-large-v3-turbo",
@@ -67,4 +78,3 @@ if user_input:
     bot_reply = get_llm_response(user_input)
     audio_file = speak_text(bot_reply)
     st.session_state.messages.append({"role": "assistant", "content": bot_reply, "audio": audio_file})
-    st.rerun()
