@@ -1,6 +1,5 @@
 streamlit
 groq
 openai
-speechrecognition
-pyaudio
+streamlit-audiorecorder
 gTTS
