@@ -1,12 +1,12 @@
 import streamlit as st
-from openai import OpenAI
+from groq import Groq
 from gtts import gTTS
 import tempfile
 
 from streamlit_mic_recorder import mic_recorder
 
 # OpenAI client
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 st.set_page_config(page_title="Vidyanshu Voice Chat", layout="centered")
 
